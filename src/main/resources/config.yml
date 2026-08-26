@@ -1,0 +1,18 @@
+config-version: 1
+language: en_US
+reputation:
+  default: 500
+  minimum: 0
+  maximum: 1000
+  positive-threshold: 500
+  points-above-threshold-per-action: 1
+  history-limit: 50
+zero-action:
+  enabled: true
+  command: "ban {player} Reputation reached zero"
+metrics:
+  enabled: true
+  bstats-id: 33360
+updates:
+  enabled: true
+  modrinth-project-id: "mReputation"

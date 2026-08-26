@@ -1,0 +1,26 @@
+name: mReputation
+version: ${version}
+main: io.github.miklires.mreputation.MReputation
+api-version: '26.2'
+author: miklires
+description: Transparent, auditable player reputation for communities
+folia-supported: true
+commands:
+  reputation:
+    aliases: [rep, sc]
+    description: View and manage player reputation
+    usage: /reputation <show|add|remove|set|history|reload>
+permissions:
+  mreputation.admin:
+    default: op
+    children:
+      mreputation.command.modify: true
+      mreputation.command.history: true
+      mreputation.command.reload: true
+      mreputation.exempt.zero: true
+  mreputation.command.show: { default: true }
+  mreputation.command.show.other: { default: true }
+  mreputation.command.modify: { default: op }
+  mreputation.command.history: { default: op }
+  mreputation.command.reload: { default: op }
+  mreputation.exempt.zero: { default: op }
