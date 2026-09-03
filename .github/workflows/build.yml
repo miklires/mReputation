@@ -11,4 +11,4 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       - run: ./gradlew clean build --no-daemon
       - uses: actions/upload-artifact@v7
-        with: { name: "mReputation-${{ github.sha }}", path: "build/libs/mReputation-*.jar" }
+        with: { name: "mReputation-${{ github.sha }}", path: "build/libs/mReputation-1.1.0.jar" }

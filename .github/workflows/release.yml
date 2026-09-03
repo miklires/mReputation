@@ -21,7 +21,7 @@ jobs:
         env: { MODRINTH_TOKEN: "${{ secrets.MODRINTH_TOKEN }}", MODRINTH_PROJECT_ID: "${{ secrets.MODRINTH_PROJECT_ID }}" }
       - uses: softprops/action-gh-release@v3
         if: github.event_name == 'push'
-        with: { files: "build/libs/mReputation-1.0.0.jar" }
+        with: { files: "build/libs/mReputation-1.1.0.jar" }
       - name: Update Modrinth page and submit for review
         if: github.event_name == 'workflow_dispatch'
         env: { MODRINTH_TOKEN: "${{ secrets.MODRINTH_TOKEN }}", MODRINTH_PROJECT_ID: "${{ secrets.MODRINTH_PROJECT_ID }}" }
