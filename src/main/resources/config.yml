@@ -8,6 +8,29 @@ reputation:
   positive-threshold: 500
   points-above-threshold-per-action: 1
   history-limit: 50
+# The highest matching minimum determines the displayed tier. Commands run only
+# when entering a different tier and are empty by default.
+tiers:
+  - id: critical
+    minimum: 0
+    display: "<dark_red>Critical"
+    enter-commands: []
+  - id: restricted
+    minimum: 250
+    display: "<red>Restricted"
+    enter-commands: []
+  - id: neutral
+    minimum: 500
+    display: "<gray>Neutral"
+    enter-commands: []
+  - id: trusted
+    minimum: 750
+    display: "<green>Trusted"
+    enter-commands: []
+  - id: exemplary
+    minimum: 900
+    display: "<aqua>Exemplary"
+    enter-commands: []
 zero-action:
   # Potentially destructive; enable only after testing the command and exemptions.
   enabled: false
