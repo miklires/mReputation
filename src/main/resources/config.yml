@@ -1,6 +1,7 @@
 config-version: 1
 language: en_US
 reputation:
+  # Values are always clamped between minimum and maximum.
   default: 500
   minimum: 0
   maximum: 1000
@@ -8,7 +9,9 @@ reputation:
   points-above-threshold-per-action: 1
   history-limit: 50
 zero-action:
-  enabled: true
+  # Potentially destructive; enable only after testing the command and exemptions.
+  enabled: false
+  # Runs as console when reputation reaches the configured minimum.
   command: "ban {player} Reputation reached zero"
 metrics:
   enabled: true

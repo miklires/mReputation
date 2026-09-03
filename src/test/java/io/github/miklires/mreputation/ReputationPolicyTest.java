@@ -6,4 +6,6 @@ class ReputationPolicyTest {
  @Test void clampsBounds(){assertEquals(0,p.change(5,-20));assertEquals(1000,p.set(2000));}
  @Test void limitsPositiveGainAboveThreshold(){assertEquals(501,p.change(500,50));}
  @Test void allowsFullRecoveryBelowThreshold(){assertEquals(490,p.change(450,40));}
+ @Test void extremeDeltasCannotWrapAround(){assertEquals(0,p.change(5,Integer.MIN_VALUE));assertEquals(1000,p.change(499,Integer.MAX_VALUE));}
+ @Test void thresholdIsKeptInsideBounds(){assertEquals(1000,new ReputationPolicy(500,0,1000,5000,1).positiveThreshold());}
 }
