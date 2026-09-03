@@ -5,22 +5,26 @@ api-version: '26.2'
 author: miklires
 description: Transparent, auditable player reputation for communities
 folia-supported: true
+softdepend: [PlaceholderAPI]
 commands:
   reputation:
     aliases: [rep, sc]
     description: View and manage player reputation
-    usage: /reputation <show|add|remove|set|history|reload>
+    usage: /reputation <show|top|bottom|tiers|history|add|remove|set|reset|reload>
 permissions:
   mreputation.admin:
     default: op
     children:
       mreputation.command.modify: true
-      mreputation.command.history: true
+      mreputation.command.history.other: true
       mreputation.command.reload: true
       mreputation.exempt.zero: true
   mreputation.command.show: { default: true }
   mreputation.command.show.other: { default: true }
+  mreputation.command.leaderboard: { default: true }
+  mreputation.command.tiers: { default: true }
   mreputation.command.modify: { default: op }
-  mreputation.command.history: { default: op }
+  mreputation.command.history.self: { default: true }
+  mreputation.command.history.other: { default: op }
   mreputation.command.reload: { default: op }
   mreputation.exempt.zero: { default: op }

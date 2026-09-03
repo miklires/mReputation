@@ -12,9 +12,11 @@ import java.util.UUID;
 public final class MReputation extends JavaPlugin {
     private ReputationService service;
     private MessageBundle messages;
+    private ConfigValidator configValidator;
 
     @Override public void onEnable() {
-        saveDefaultConfig();
+        configValidator = new ConfigValidator(this);
+        configValidator.load();
         saveLang("en_US");
         saveLang("ru_RU");
         messages = new MessageBundle(this);
@@ -25,6 +27,7 @@ public final class MReputation extends JavaPlugin {
             getCommand("reputation").setExecutor(command);
             getCommand("reputation").setTabCompleter(command);
         }
+        if (getServer().getPluginManager().isPluginEnabled("PlaceholderAPI")) new PlaceholderHook(this).register();
         int metricsId = Math.max(0, getConfig().getInt("metrics.bstats-id", 0));
         if (getConfig().getBoolean("metrics.enabled", true) && metricsId > 0) new Metrics(this, metricsId);
         if (getConfig().getBoolean("updates.enabled", true)) UpdateChecker.checkAsync(this,
@@ -38,7 +41,7 @@ public final class MReputation extends JavaPlugin {
     }
 
     void reloadAll() {
-        reloadConfig();
+        configValidator.load();
         messages.reload();
         service.reloadPolicy();
     }

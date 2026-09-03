@@ -48,15 +48,15 @@ final class ReputationStorage implements AutoCloseable {
     Map<UUID, Stored> load() {
         if (!Files.exists(file) && Files.exists(backup)) {
             plugin.getLogger().warning("data.yml is missing; recovering the last backup");
-            return loadFile(backup);
+            Map<UUID, Stored> recovered = loadFile(backup);
+            return recovered == null ? Map.of() : recovered;
         }
         Map<UUID, Stored> loaded = loadFile(file);
-        if (!loaded.isEmpty() || !Files.exists(file) || !Files.exists(backup)) return loaded;
-        if (file.toFile().length() == 0L) {
-            plugin.getLogger().warning("data.yml is empty; recovering the last backup");
-            return loadFile(backup);
-        }
-        return loaded;
+        if (loaded != null) return loaded;
+        if (!Files.exists(backup)) return Map.of();
+        plugin.getLogger().warning("data.yml is invalid; recovering the last backup");
+        Map<UUID, Stored> recovered = loadFile(backup);
+        return recovered == null ? Map.of() : recovered;
     }
 
     private Map<UUID, Stored> loadFile(Path source) {
@@ -67,7 +67,7 @@ final class ReputationStorage implements AutoCloseable {
             yaml.load(source.toFile());
         } catch (Exception exception) {
             plugin.getLogger().severe("Could not read " + source.getFileName() + ": " + exception.getMessage());
-            return output;
+            return null;
         }
         var root = yaml.getConfigurationSection("players");
         if (root == null) return output;
@@ -90,7 +90,7 @@ final class ReputationStorage implements AutoCloseable {
         return output;
     }
 
-    void saveAsync(Map<UUID, Stored> snapshot) {
+    synchronized void saveAsync(Map<UUID, Stored> snapshot) {
         if (closed) return;
         pending.set(Map.copyOf(snapshot));
         scheduleDrain();
@@ -157,8 +157,13 @@ final class ReputationStorage implements AutoCloseable {
         return clean.length() <= maximum ? clean : clean.substring(0, maximum);
     }
 
-    @Override public void close() {
+    @Override public synchronized void close() {
         closed = true;
+        Map<UUID, Stored> lastSnapshot = pending.getAndSet(null);
+        if (lastSnapshot != null) {
+            try { writer.execute(() -> save(lastSnapshot)); }
+            catch (RejectedExecutionException ignored) { }
+        }
         writer.shutdown();
         try {
             if (!writer.awaitTermination(5, TimeUnit.SECONDS)) {

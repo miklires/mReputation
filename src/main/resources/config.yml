@@ -1,4 +1,4 @@
-config-version: 1
+config-version: 2
 language: en_US
 reputation:
   # Values are always clamped between minimum and maximum.
@@ -7,7 +7,11 @@ reputation:
   maximum: 1000
   positive-threshold: 500
   points-above-threshold-per-action: 1
+  maximum-adjustment-per-command: 1000
+  minimum-reason-length: 3
   history-limit: 50
+display:
+  leaderboard-page-size: 10
 # The highest matching minimum determines the displayed tier. Commands run only
 # when entering a different tier and are empty by default.
 tiers:

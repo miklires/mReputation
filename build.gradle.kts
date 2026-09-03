@@ -2,9 +2,10 @@ plugins { java; id("com.gradleup.shadow") version "9.0.0"; id("com.modrinth.mino
 group = "io.github.miklires"
 version = "1.0.0"
 java { toolchain.languageVersion.set(JavaLanguageVersion.of(25)) }
-repositories { mavenCentral(); maven("https://repo.papermc.io/repository/maven-public/") }
+repositories { mavenCentral(); maven("https://repo.papermc.io/repository/maven-public/"); maven("https://repo.extendedclip.com/releases/") }
 dependencies {
  compileOnly("io.papermc.paper:paper-api:26.2.build.112-stable")
+ compileOnly("me.clip:placeholderapi:2.12.3")
  implementation("org.bstats:bstats-bukkit:3.1.0")
  testImplementation(platform("org.junit:junit-bom:5.11.4")); testImplementation("org.junit.jupiter:junit-jupiter")
  testRuntimeOnly("org.junit.platform:junit-platform-launcher")

@@ -39,7 +39,7 @@ public final class ReputationService implements ReputationAPI {
                 config.getInt("reputation.positive-threshold", 500),
                 config.getInt("reputation.points-above-threshold-per-action", 1));
         int loadedHistoryLimit = Math.clamp(config.getInt("reputation.history-limit", 50), 1, MAX_HISTORY);
-        List<TierRule> loadedTiers = loadTiers(config.getMapList("tiers"), loadedPolicy.minimum());
+        List<TierRule> loadedTiers = loadTiers(config.getMapList("tiers"), loadedPolicy.minimum(), loadedPolicy.maximum());
         policy = loadedPolicy;
         historyLimit = loadedHistoryLimit;
         tiers = loadedTiers;
@@ -123,7 +123,7 @@ public final class ReputationService implements ReputationAPI {
         return result;
     }
 
-    private static List<TierRule> loadTiers(List<Map<?, ?>> configured, int minimum) {
+    private static List<TierRule> loadTiers(List<Map<?, ?>> configured, int minimum, int maximum) {
         Map<String, TierRule> unique = new LinkedHashMap<>();
         for (Map<?, ?> raw : configured) {
             Object rawId = raw.containsKey("id") ? raw.get("id") : "";
@@ -133,6 +133,7 @@ public final class ReputationService implements ReputationAPI {
             Object rawMinimum = raw.containsKey("minimum") ? raw.get("minimum") : minimum;
             try { threshold = Integer.parseInt(String.valueOf(rawMinimum)); }
             catch (NumberFormatException exception) { continue; }
+            threshold = Math.clamp(threshold, minimum, maximum);
             Object rawDisplay = raw.containsKey("display") ? raw.get("display") : id;
             String display = bounded(String.valueOf(rawDisplay), 80);
             List<String> commands = raw.get("enter-commands") instanceof List<?> list
