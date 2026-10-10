@@ -1,7 +1,7 @@
 name: mReputation
 version: ${version}
 main: io.github.miklires.mreputation.MReputation
-api-version: '26.2'
+api-version: '26.3'
 author: miklires
 description: Auditable reputation tiers, standings, history, and moderation workflows
 folia-supported: true

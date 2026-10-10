@@ -17,7 +17,7 @@ final class UpdateChecker {
     static void checkAsync(JavaPlugin plugin, String id) {
         if (id == null || !id.matches("[A-Za-z0-9_-]{3,64}")) return;
         HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
-        HttpRequest request = HttpRequest.newBuilder(URI.create("https://api.modrinth.com/v2/project/" + id + "/version?loaders=%5B%22paper%22%5D&game_versions=%5B%2226.2%22%5D"))
+        HttpRequest request = HttpRequest.newBuilder(URI.create("https://api.modrinth.com/v2/project/" + id + "/version?loaders=%5B%22paper%22%5D&game_versions=%5B%2226.3%22%5D"))
                 .timeout(Duration.ofSeconds(8)).header("User-Agent", "miklires/mReputation/" + plugin.getPluginMeta().getVersion()).build();
         client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenAccept(response -> {
             if (response.statusCode() != 200) return;
