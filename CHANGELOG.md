@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0 - 2026-10-11
+
+- Added an opt-in player-voting API for mProfile with positive and separately controlled negative votes.
+- Added evidence, minimum playtime/account age, cooldown, daily unique-target limits, and reciprocal-vote protection.
+- Stored votes and reputation history in one coalesced atomic YAML snapshot with backup recovery.
+- Added capability methods so integrations hide voting controls while the feature is disabled.
+- Added policy tests for endorsements, duplicates, cooldowns, and abuse protections.
+
 ## 1.1.1 - 2026-10-10
 
 - Added Minecraft 26.3 compatibility and verified the clean build and automated test suite against Paper API 26.3.

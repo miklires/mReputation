@@ -24,6 +24,7 @@
 - Five ready-to-use reputation tiers with custom MiniMessage names and optional commands when entering a tier.
 - Self/other score lookup, highest and lowest leaderboards, tier list and paginated audit history.
 - Audited add, remove, set and reset operations with actor, reason, timestamp, delta and resulting value.
+- Optional player endorsements with evidence, account-age/playtime gates, cooldowns, daily limits, and reciprocal-vote blocking.
 - Configurable positive-gain reduction above a threshold, matching social-credit-style moderation workflows.
 - Atomic local YAML storage, coalesced write bursts, a last-known backup and recovery from an invalid primary file.
 - Optional minimum-score console action, disabled by default and executed only on a real threshold crossing.
@@ -39,7 +40,7 @@
 
 ## Quick start
 
-1. Put `mReputation-1.1.0.jar` in `plugins/` and start the server.
+1. Put `mReputation-1.2.0.jar` in `plugins/` and start the server.
 2. Review `plugins/mReputation/config.yml`; the generated defaults are safe to use immediately.
 3. Give moderators `mreputation.command.modify` and `mreputation.command.history.other`.
 4. Use `/rep show`, `/rep tiers`, and `/rep top` to inspect the system.
@@ -71,6 +72,8 @@ Tier `enter-commands` support `{player}`, `{uuid}`, and `{value}`. They run only
 
 Existing `data.yml` installations continue working. Saves use `data.yml.tmp` followed by an atomic replacement where supported, and keep `data.yml.bak`. Rapid changes collapse into the newest full snapshot instead of creating an unbounded disk-write queue.
 
+Player voting is an integration API rather than a public mReputation command. It is disabled by default. To use it from mProfile, enable `player-voting.enabled` after reviewing the playtime, account-age, evidence, cooldown, daily-limit, and reciprocal-vote settings. Negative votes require the separate `player-voting.allow-negative` switch. Vote state and score history are saved in the same atomic snapshot.
+
 ## PlaceholderAPI
 
 - `%mreputation_value%` — numeric score
@@ -79,7 +82,7 @@ Existing `data.yml` installations continue working. Saves use `data.yml.tmp` fol
 
 ## API
 
-Obtain `ReputationAPI` from Bukkit's Services Manager. It provides score/tier reads, immutable history, bounded leaderboards, changes, sets and resets. `ReputationChangeEvent` is cancellable. Mutation calls fire a Bukkit event and should be made from a server-owned execution context appropriate for Paper or Folia.
+Obtain `ReputationAPI` from Bukkit's Services Manager. It provides score/tier reads, immutable history, bounded leaderboards, changes, sets, resets, voting capability checks, and protected votes. `ReputationChangeEvent` is cancellable. Mutation calls fire a Bukkit event and should be made from a server-owned execution context appropriate for Paper or Folia.
 
 ## Telemetry and updates
 
@@ -93,7 +96,7 @@ The update check only reports a newer compatible Modrinth version. It never down
 ./gradlew clean build
 ```
 
-The distributable file is `build/libs/mReputation-1.1.0.jar`.
+The distributable file is `build/libs/mReputation-1.2.0.jar`.
 
 [Report an issue](https://github.com/miklires/mReputation/issues) · [View source](https://github.com/miklires/mReputation) · [Join Discord](https://discord.gg/pes25cnWKy)
 

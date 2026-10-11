@@ -19,6 +19,7 @@ permissions:
       mreputation.command.history.other: true
       mreputation.command.reload: true
       mreputation.exempt.zero: true
+      mreputation.vote: true
   mreputation.command.show: { default: true }
   mreputation.command.show.other: { default: true }
   mreputation.command.leaderboard: { default: true }
@@ -28,3 +29,4 @@ permissions:
   mreputation.command.history.other: { default: op }
   mreputation.command.reload: { default: op }
   mreputation.exempt.zero: { default: op }
+  mreputation.vote: { default: true }

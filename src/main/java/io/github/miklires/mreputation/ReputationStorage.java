@@ -3,7 +3,6 @@ package io.github.miklires.mreputation;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.File;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,6 +26,11 @@ final class ReputationStorage implements AutoCloseable {
     record Stored(int value, String name, List<ReputationEntry> history) {
         Stored { history = List.copyOf(history); }
     }
+    record VoteKey(UUID voterId, UUID targetId) { }
+    record StoredVote(int direction, long timestamp) { }
+    record Data(Map<UUID, Stored> records, Map<VoteKey, StoredVote> votes) {
+        Data { records = Map.copyOf(records); votes = Map.copyOf(votes); }
+    }
 
     private final JavaPlugin plugin;
     private final Path file;
@@ -34,7 +38,7 @@ final class ReputationStorage implements AutoCloseable {
     private final Path temporary;
     private final ExecutorService writer = Executors.newSingleThreadExecutor(
             runnable -> Thread.ofPlatform().name("mReputation-storage").unstarted(runnable));
-    private final AtomicReference<Map<UUID, Stored>> pending = new AtomicReference<>();
+    private final AtomicReference<Data> pending = new AtomicReference<>();
     private final AtomicBoolean drainScheduled = new AtomicBoolean();
     private volatile boolean closed;
 
@@ -45,23 +49,24 @@ final class ReputationStorage implements AutoCloseable {
         this.temporary = plugin.getDataFolder().toPath().resolve("data.yml.tmp");
     }
 
-    Map<UUID, Stored> load() {
+    Data load() {
         if (!Files.exists(file) && Files.exists(backup)) {
             plugin.getLogger().warning("data.yml is missing; recovering the last backup");
-            Map<UUID, Stored> recovered = loadFile(backup);
-            return recovered == null ? Map.of() : recovered;
+            Data recovered = loadFile(backup);
+            return recovered == null ? new Data(Map.of(), Map.of()) : recovered;
         }
-        Map<UUID, Stored> loaded = loadFile(file);
+        Data loaded = loadFile(file);
         if (loaded != null) return loaded;
-        if (!Files.exists(backup)) return Map.of();
+        if (!Files.exists(backup)) return new Data(Map.of(), Map.of());
         plugin.getLogger().warning("data.yml is invalid; recovering the last backup");
-        Map<UUID, Stored> recovered = loadFile(backup);
-        return recovered == null ? Map.of() : recovered;
+        Data recovered = loadFile(backup);
+        return recovered == null ? new Data(Map.of(), Map.of()) : recovered;
     }
 
-    private Map<UUID, Stored> loadFile(Path source) {
+    private Data loadFile(Path source) {
         Map<UUID, Stored> output = new HashMap<>();
-        if (!Files.exists(source)) return output;
+        Map<VoteKey, StoredVote> votes = new HashMap<>();
+        if (!Files.exists(source)) return new Data(output, votes);
         YamlConfiguration yaml = new YamlConfiguration();
         try {
             yaml.load(source.toFile());
@@ -70,29 +75,46 @@ final class ReputationStorage implements AutoCloseable {
             return null;
         }
         var root = yaml.getConfigurationSection("players");
-        if (root == null) return output;
-        for (String raw : root.getKeys(false)) {
-            try {
-                UUID id = UUID.fromString(raw);
-                int value = root.getInt(raw + ".value");
-                String name = bounded(root.getString(raw + ".name", raw), 36);
-                List<ReputationEntry> history = new ArrayList<>();
-                for (Map<?, ?> entry : root.getMapList(raw + ".history")) {
-                    history.add(new ReputationEntry(number(entry.get("time")), (int) number(entry.get("delta")),
-                            (int) number(entry.get("value")), bounded(Objects.toString(entry.get("actor"), "unknown"), 64),
-                            bounded(Objects.toString(entry.get("reason"), ""), 160)));
+        if (root != null) {
+            for (String raw : root.getKeys(false)) {
+                try {
+                    UUID id = UUID.fromString(raw);
+                    int value = root.getInt(raw + ".value");
+                    String name = bounded(root.getString(raw + ".name", raw), 36);
+                    List<ReputationEntry> history = new ArrayList<>();
+                    for (Map<?, ?> entry : root.getMapList(raw + ".history")) {
+                        history.add(new ReputationEntry(number(entry.get("time")), (int) number(entry.get("delta")),
+                                (int) number(entry.get("value")), bounded(Objects.toString(entry.get("actor"), "unknown"), 64),
+                                bounded(Objects.toString(entry.get("reason"), ""), 160)));
+                    }
+                    output.put(id, new Stored(value, name, history));
+                } catch (Exception exception) {
+                    plugin.getLogger().warning("Skipping invalid reputation record " + raw + ": " + exception.getMessage());
                 }
-                output.put(id, new Stored(value, name, history));
-            } catch (Exception exception) {
-                plugin.getLogger().warning("Skipping invalid reputation record " + raw + ": " + exception.getMessage());
             }
         }
-        return output;
+        var voteRoot = yaml.getConfigurationSection("votes");
+        if (voteRoot != null) for (String voterRaw : voteRoot.getKeys(false)) {
+            try {
+                UUID voter = UUID.fromString(voterRaw);
+                var targets = voteRoot.getConfigurationSection(voterRaw);
+                if (targets == null) continue;
+                for (String targetRaw : targets.getKeys(false)) {
+                    UUID target = UUID.fromString(targetRaw);
+                    int direction = Math.clamp(targets.getInt(targetRaw + ".direction"), -1, 1);
+                    long timestamp = Math.max(0L, targets.getLong(targetRaw + ".timestamp"));
+                    if (direction != 0) votes.put(new VoteKey(voter, target), new StoredVote(direction, timestamp));
+                }
+            } catch (Exception exception) {
+                plugin.getLogger().warning("Skipping invalid vote record " + voterRaw + ": " + exception.getMessage());
+            }
+        }
+        return new Data(output, votes);
     }
 
-    synchronized void saveAsync(Map<UUID, Stored> snapshot) {
+    synchronized void saveAsync(Map<UUID, Stored> records, Map<VoteKey, StoredVote> votes) {
         if (closed) return;
-        pending.set(Map.copyOf(snapshot));
+        pending.set(new Data(records, votes));
         scheduleDrain();
     }
 
@@ -107,7 +129,7 @@ final class ReputationStorage implements AutoCloseable {
 
     private void drain() {
         try {
-            Map<UUID, Stored> snapshot;
+            Data snapshot;
             while ((snapshot = pending.getAndSet(null)) != null) save(snapshot);
         } finally {
             drainScheduled.set(false);
@@ -115,9 +137,9 @@ final class ReputationStorage implements AutoCloseable {
         }
     }
 
-    private void save(Map<UUID, Stored> snapshot) {
+    private void save(Data snapshot) {
         YamlConfiguration yaml = new YamlConfiguration();
-        snapshot.entrySet().stream().sorted(Map.Entry.comparingByKey(Comparator.comparing(UUID::toString))).forEach(item -> {
+        snapshot.records().entrySet().stream().sorted(Map.Entry.comparingByKey(Comparator.comparing(UUID::toString))).forEach(item -> {
             String path = "players." + item.getKey();
             yaml.set(path + ".value", item.getValue().value());
             yaml.set(path + ".name", item.getValue().name());
@@ -132,6 +154,12 @@ final class ReputationStorage implements AutoCloseable {
                 history.add(serialized);
             }
             yaml.set(path + ".history", history);
+        });
+        snapshot.votes().entrySet().stream().sorted(Comparator.comparing(entry ->
+                entry.getKey().voterId() + ":" + entry.getKey().targetId())).forEach(entry -> {
+            String path = "votes." + entry.getKey().voterId() + "." + entry.getKey().targetId();
+            yaml.set(path + ".direction", entry.getValue().direction());
+            yaml.set(path + ".timestamp", entry.getValue().timestamp());
         });
         try {
             Files.createDirectories(file.getParent());
@@ -159,7 +187,7 @@ final class ReputationStorage implements AutoCloseable {
 
     @Override public synchronized void close() {
         closed = true;
-        Map<UUID, Stored> lastSnapshot = pending.getAndSet(null);
+        Data lastSnapshot = pending.getAndSet(null);
         if (lastSnapshot != null) {
             try { writer.execute(() -> save(lastSnapshot)); }
             catch (RejectedExecutionException ignored) { }

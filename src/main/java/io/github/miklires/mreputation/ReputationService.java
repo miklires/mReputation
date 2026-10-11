@@ -4,6 +4,7 @@ import io.github.miklires.mreputation.api.ReputationAPI;
 import io.github.miklires.mreputation.api.ReputationChangeEvent;
 import io.github.miklires.mreputation.api.ReputationStanding;
 import io.github.miklires.mreputation.api.ReputationTier;
+import io.github.miklires.mreputation.api.ReputationVoteResult;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 
@@ -21,6 +22,7 @@ public final class ReputationService implements ReputationAPI {
     private final MReputation plugin;
     private final ReputationStorage storage;
     private final Map<UUID, ReputationStorage.Stored> records = new ConcurrentHashMap<>();
+    private final Map<ReputationStorage.VoteKey, ReputationStorage.StoredVote> votes = new ConcurrentHashMap<>();
     private volatile ReputationPolicy policy;
     private volatile int historyLimit;
     private volatile List<TierRule> tiers;
@@ -28,7 +30,9 @@ public final class ReputationService implements ReputationAPI {
     ReputationService(MReputation plugin) {
         this.plugin = plugin;
         this.storage = new ReputationStorage(plugin);
-        records.putAll(storage.load());
+        ReputationStorage.Data loaded = storage.load();
+        records.putAll(loaded.records());
+        votes.putAll(loaded.votes());
         reloadPolicy();
     }
 
@@ -83,7 +87,61 @@ public final class ReputationService implements ReputationAPI {
         return set(id, name, policy.defaultValue(), actor, reason);
     }
 
+    @Override public boolean playerVotingEnabled() {
+        return plugin.getConfig().getBoolean("player-voting.enabled", false);
+    }
+
+    @Override public boolean negativePlayerVotingEnabled() {
+        return playerVotingEnabled() && plugin.getConfig().getBoolean("player-voting.allow-negative", false);
+    }
+
+    @Override public synchronized ReputationVoteResult vote(UUID voterId, String voterName, long voterPlaytimeTicks,
+                                                            long voterFirstPlayedMillis, UUID targetId, String targetName,
+                                                            int direction, String evidence) {
+        var config = plugin.getConfig();
+        direction = Integer.signum(direction);
+        long minimumTicks = Math.clamp(config.getLong("player-voting.minimum-playtime-hours", 2), 0, 10_000)
+                * 60L * 60L * 20L;
+        long now = System.currentTimeMillis();
+        long minimumAgeMillis = Math.clamp(config.getLong("player-voting.minimum-account-age-days", 7), 0, 3650)
+                * 86_400_000L;
+        int minimumEvidence = Math.clamp(config.getInt("player-voting.minimum-evidence-length", 5), 1, 160);
+        String safeEvidence = bounded(evidence, 160);
+        ReputationStorage.VoteKey key = new ReputationStorage.VoteKey(voterId, targetId);
+        ReputationStorage.StoredVote previous = votes.get(key);
+        long cooldownMillis = Math.clamp(config.getLong("player-voting.cooldown-hours", 24), 0, 24L * 365L)
+                * 60L * 60L * 1000L;
+        int dailyLimit = Math.clamp(config.getInt("player-voting.daily-limit", 10), 1, 1_000);
+        long recent = votes.entrySet().stream().filter(entry -> entry.getKey().voterId().equals(voterId))
+                .filter(entry -> now - entry.getValue().timestamp() < 86_400_000L).count();
+        ReputationVotePolicy rules = new ReputationVotePolicy(config.getBoolean("player-voting.enabled", false),
+                config.getBoolean("player-voting.allow-negative", false), minimumTicks, minimumAgeMillis,
+                minimumEvidence, cooldownMillis, dailyLimit, config.getBoolean("player-voting.block-reciprocal", true));
+        ReputationVoteResult validation = rules.validate(voterId, targetId, voterPlaytimeTicks, voterFirstPlayedMillis,
+                direction, safeEvidence, previous == null ? null
+                        : new ReputationVotePolicy.Previous(previous.direction(), previous.timestamp()),
+                votes.containsKey(new ReputationStorage.VoteKey(targetId, voterId)), recent, now);
+        if (validation != ReputationVoteResult.SUCCESS) return validation;
+
+        int points = Math.clamp(config.getInt("player-voting.points-per-vote", 1), 1, 100);
+        int oldDirection = previous == null ? 0 : previous.direction();
+        int delta = (direction - oldDirection) * points;
+        int oldValue = get(targetId);
+        boolean changed = apply(targetId, safeName(targetId, targetName), oldValue, policy.set(oldValue + delta),
+                "player:" + voterId, (direction > 0 ? "Player endorsement: " : "Player negative vote: ") + safeEvidence,
+                false);
+        if (!changed) return ReputationVoteResult.REJECTED;
+        votes.put(key, new ReputationStorage.StoredVote(direction, now));
+        storage.saveAsync(Map.copyOf(records), Map.copyOf(votes));
+        return ReputationVoteResult.SUCCESS;
+    }
+
     private synchronized boolean apply(UUID id, String name, int oldValue, int newValue, String actor, String reason) {
+        return apply(id, name, oldValue, newValue, actor, reason, true);
+    }
+
+    private synchronized boolean apply(UUID id, String name, int oldValue, int newValue, String actor, String reason,
+                                       boolean persist) {
         if (id == null || oldValue == newValue) return false;
         ReputationChangeEvent event = new ReputationChangeEvent(id, oldValue, newValue, actor, reason);
         Bukkit.getPluginManager().callEvent(event);
@@ -92,7 +150,7 @@ public final class ReputationService implements ReputationAPI {
         history.add(new ReputationEntry(System.currentTimeMillis(), newValue - oldValue, newValue, actor, reason));
         while (history.size() > historyLimit) history.removeFirst();
         records.put(id, new ReputationStorage.Stored(newValue, name, history));
-        storage.saveAsync(Map.copyOf(records));
+        if (persist) storage.saveAsync(Map.copyOf(records), Map.copyOf(votes));
         TierRule oldTier = tierFor(oldValue);
         TierRule newTier = tierFor(newValue);
         if (!oldTier.view().id().equals(newTier.view().id())) plugin.handleTierChange(id, name, newValue, oldTier, newTier);
@@ -111,7 +169,7 @@ public final class ReputationService implements ReputationAPI {
             ReputationStorage.Stored normalized = new ReputationStorage.Stored(value, name, history);
             if (!normalized.equals(stored)) { records.put(entry.getKey(), normalized); changed = true; }
         }
-        if (changed) storage.saveAsync(Map.copyOf(records));
+        if (changed) storage.saveAsync(Map.copyOf(records), Map.copyOf(votes));
     }
 
     private TierRule tierFor(int value) {

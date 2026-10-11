@@ -1,4 +1,4 @@
-config-version: 2
+config-version: 3
 language: en_US
 reputation:
   # Values are always clamped between minimum and maximum.
@@ -12,6 +12,18 @@ reputation:
   history-limit: 50
 display:
   leaderboard-page-size: 10
+player-voting:
+  # mProfile and other trusted integrations can expose player endorsements.
+  enabled: false
+  # Negative votes are intentionally opt-in to reduce harassment and brigading.
+  allow-negative: false
+  points-per-vote: 1
+  minimum-playtime-hours: 2
+  minimum-account-age-days: 7
+  minimum-evidence-length: 5
+  block-reciprocal: true
+  cooldown-hours: 24
+  daily-limit: 10
 # The highest matching minimum determines the displayed tier. Commands run only
 # when entering a different tier and are empty by default.
 tiers:

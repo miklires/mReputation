@@ -13,7 +13,7 @@ final class ConfigValidator {
         plugin.reloadConfig();
         FileConfiguration config = plugin.getConfig();
         config.options().copyDefaults(true);
-        config.set("config-version", 2);
+        config.set("config-version", 3);
         String language = config.getString("language", "en_US");
         if (!"en_US".equalsIgnoreCase(language) && !"ru_RU".equalsIgnoreCase(language)) config.set("language", "en_US");
         int minimum = bounded(config, "reputation.minimum", -1_000_000, 1_000_000, 0);
@@ -26,6 +26,12 @@ final class ConfigValidator {
         bounded(config, "reputation.minimum-reason-length", 1, 160, 3);
         bounded(config, "reputation.history-limit", 1, 500, 50);
         bounded(config, "display.leaderboard-page-size", 5, 20, 10);
+        bounded(config, "player-voting.points-per-vote", 1, 100, 1);
+        bounded(config, "player-voting.minimum-playtime-hours", 0, 10_000, 2);
+        bounded(config, "player-voting.minimum-account-age-days", 0, 3650, 7);
+        bounded(config, "player-voting.minimum-evidence-length", 1, 160, 5);
+        bounded(config, "player-voting.cooldown-hours", 0, 24 * 365, 24);
+        bounded(config, "player-voting.daily-limit", 1, 1_000, 10);
         String zeroCommand = config.getString("zero-action.command", "");
         if (config.getBoolean("zero-action.enabled") && !safeCommand(zeroCommand)) {
             config.set("zero-action.enabled", false);
